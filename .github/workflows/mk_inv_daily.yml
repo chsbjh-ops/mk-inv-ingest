@@ -30,13 +30,13 @@ jobs:
       - name: Run MK_INV ingest (시장지표 19종)
         env:
           MK_INV_OUT: data
-          MK_INV_LOOKBACK: '7'
+          MK_INV_START: '2026-05-01'
         run: python mk_inv_daily_ingest.py
 
       - name: Run MK_FRED ingest (FRED 12종)
         env:
           MK_FRED_OUT: data
-          MK_FRED_START: '2020-01-01'
+          MK_FRED_START: '2026-05-01'
         run: python mk_fred_daily_ingest.py
 
       - name: Commit & push results
