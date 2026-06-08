@@ -1,0 +1,55 @@
+name: MK_INV Daily Ingest
+
+# 매일 무인 실행 + 수동 실행 버튼
+on:
+  schedule:
+    # cron 은 UTC 기준. '30 22 * * *' = 매일 07:30 KST (UTC+9).
+    - cron: '30 22 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write          # 수집 결과를 리포에 커밋하기 위해 필요
+
+concurrency:               # 동시 실행 방지
+  group: mk-inv-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run MK_INV ingest
+        env:
+          MK_INV_OUT: data            # 결과 저장 폴더 (리포 내 data/)
+          MK_INV_LOOKBACK: '7'        # 최근 7일 조회로 휴장/지연 보정
+        run: python mk_inv_daily_ingest.py
+
+      - name: Commit & push results
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "변경 없음 — 커밋 생략"
+          else
+            git commit -m "MK_INV daily update $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Upload artifact (백업)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mk_inv_data
+          path: data/
+          if-no-files-found: warn
