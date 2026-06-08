@@ -48,6 +48,7 @@ jobs:
             echo "변경 없음 — 커밋 생략"
           else
             git commit -m "MK daily update $(date -u +%Y-%m-%d)"
+            git pull --rebase --autostash origin main
             git push
           fi
 
