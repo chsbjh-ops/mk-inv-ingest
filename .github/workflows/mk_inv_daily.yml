@@ -1,17 +1,16 @@
-name: MK_INV Daily Ingest
+```yaml
+name: MK Daily Ingest
 
-# 매일 무인 실행 + 수동 실행 버튼
 on:
   schedule:
-    # cron 은 UTC 기준. '30 22 * * *' = 매일 07:30 KST (UTC+9).
-    - cron: '30 22 * * *'
+    - cron: '30 22 * * *'      # 매일 07:30 KST (UTC+9)
   workflow_dispatch: {}
 
 permissions:
-  contents: write          # 수집 결과를 리포에 커밋하기 위해 필요
+  contents: write
 
-concurrency:               # 동시 실행 방지
-  group: mk-inv-ingest
+concurrency:
+  group: mk-daily-ingest
   cancel-in-progress: false
 
 jobs:
@@ -29,11 +28,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run MK_INV ingest
+      - name: Run MK_INV ingest (시장지표 19종)
         env:
-          MK_INV_OUT: data            # 결과 저장 폴더 (리포 내 data/)
-          MK_INV_LOOKBACK: '7'        # 최근 7일 조회로 휴장/지연 보정
+          MK_INV_OUT: data
+          MK_INV_LOOKBACK: '7'
         run: python mk_inv_daily_ingest.py
+
+      - name: Run MK_FRED ingest (FRED 12종)
+        env:
+          MK_FRED_OUT: data
+          MK_FRED_START: '2020-01-01'
+        run: python mk_fred_daily_ingest.py
 
       - name: Commit & push results
         run: |
@@ -43,13 +48,14 @@ jobs:
           if git diff --staged --quiet; then
             echo "변경 없음 — 커밋 생략"
           else
-            git commit -m "MK_INV daily update $(date -u +%Y-%m-%d)"
+            git commit -m "MK daily update $(date -u +%Y-%m-%d)"
             git push
           fi
 
       - name: Upload artifact (백업)
         uses: actions/upload-artifact@v4
         with:
-          name: mk_inv_data
+          name: mk_data
           path: data/
           if-no-files-found: warn
+```
