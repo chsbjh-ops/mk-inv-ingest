@@ -1,4 +1,3 @@
-```yaml
 name: MK Daily Ingest
 
 on:
@@ -58,4 +57,4 @@ jobs:
           name: mk_data
           path: data/
           if-no-files-found: warn
-```
+
