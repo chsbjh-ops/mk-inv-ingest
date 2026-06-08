@@ -23,14 +23,17 @@
  ----------
    pip install yfinance pandas_datareader finance-datareader pykrx openpyxl pandas
 
+ 수집 방식
+ ----------
+   매 실행마다 START(기본 2026-05-01) ~ 오늘 구간을 조회해 누적 마스터에
+   (MAST_ID, TD) 기준 중복 없이 병합한다. 즉 첫 실행은 5/1부터 1회 백필,
+   이후 실행은 새로 생긴 날짜만 실질적으로 추가된다.
+
  사용법 (Colab)
  ----------
    !pip install yfinance pandas_datareader finance-datareader pykrx openpyxl -q
    from mk_inv_daily_ingest import run
-   run(lookback_days=5, out_dir="/content/drive/MyDrive/Bigset/MK_INV")
-
-   - lookback_days : 최근 N일을 조회해 결측/지연 보정 (기본 5).
-   - 매일 실행 시 누적 마스터(mk_inv_data_master.xlsx)에 (MAST_ID, TD) 중복 없이 병합.
+   run(start="2026-05-01", out_dir="/content/drive/MyDrive/Bigset/MK_INV")
 ==============================================================================
 """
 
@@ -82,6 +85,8 @@ INDICATORS = [
 
 DATA_COLS = ["MAST_ID", "INV_CD", "INV_NM", "TD",
              "CLOSE_PRC", "OPEN_PRC", "HIGH_PRC", "LOW_PRC", "VOLUME", "CHG_RT"]
+
+START_DEFAULT = "2026-05-01"   # 1회 백필 시작일. 매 실행마다 이 날짜~오늘을 재조회·병합.
 
 
 # -----------------------------------------------------------------------------
@@ -229,14 +234,14 @@ def save_excel(df_new: pd.DataFrame, out_dir: str) -> dict:
 # -----------------------------------------------------------------------------
 # 5. 엔트리포인트
 # -----------------------------------------------------------------------------
-def run(lookback_days: int = 5, out_dir: str = "./MK_INV") -> dict:
+def run(start: str = START_DEFAULT, out_dir: str = "./MK_INV") -> dict:
     end = datetime.now().date()
-    start = end - timedelta(days=lookback_days)
-    log.info("MK_INV 수집 시작 : %s ~ %s (%d종)", start, end, len(INDICATORS))
+    start_d = pd.to_datetime(start).date()
+    log.info("MK_INV 수집 시작 : %s ~ %s (%d종)", start_d, end, len(INDICATORS))
 
     all_rows: list[dict] = []
     for meta in INDICATORS:
-        all_rows.extend(collect_one(meta, start, end))
+        all_rows.extend(collect_one(meta, start_d, end))
 
     if not all_rows:
         log.error("수집 결과가 비었습니다. 네트워크/패키지 설치를 확인하세요.")
@@ -256,5 +261,5 @@ def run(lookback_days: int = 5, out_dir: str = "./MK_INV") -> dict:
 
 
 if __name__ == "__main__":
-    run(lookback_days=int(os.environ.get("MK_INV_LOOKBACK", "5")),
+    run(start=os.environ.get("MK_INV_START", START_DEFAULT),
         out_dir=os.environ.get("MK_INV_OUT", "./MK_INV"))

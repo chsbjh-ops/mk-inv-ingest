@@ -63,7 +63,10 @@ INDICATORS = [
 
 DATA_COLS = ["MAST_ID", "SERIES_CD", "SERIES_NM", "TD", "VALUE"]
 
-START_DEFAULT = "2020-01-01"   # 정의서 데이터 시작점과 동일 (전체 이력 보강)
+START_DEFAULT = "2026-05-01"   # 1회 백필 시작일. 매 실행마다 이 날짜~오늘을 재조회.
+# ※ FRED 는 지난주 값이 이번 주에 갱신/지연 게시되는 경우가 있어,
+#   매 실행마다 START(=5/1)부터 다시 받아 최근 2주 이상을 항상 재비교한다.
+#   병합은 (MAST_ID, TD) 기준 keep="last" 이므로 수정된 값이 최신값으로 덮어쓰기 된다.
 RETRY_MAX = 3
 RETRY_SLEEP = 3.0
 
