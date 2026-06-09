@@ -14,10 +14,10 @@
  ----------------------------------------------------------------------------
    yfinance                : 환율 3, 변동성(VIX), 원자재 2, 주가지수 7  = 13종
    FRED (requests)         : 미국 국채 3/10/30년                        = 3종  (키 선택)
-   FinanceDataReader       : 국고채 3/10년                              = 2종  (키 불필요)
    pykrx (KRX)             : VKOSPI                                     = 1종
                                                                        --------
-                                                                          19종
+                                                                          17종
+   ※ 국고채 3/10년(MAST_ID 8·9)은 별도 처리로 이 파이프라인에서 제외.
    ※ FRED 는 fredgraph.csv 간헐 timeout 대응으로 재시도 강화. FRED_API_KEY 가
      있으면 공식 API(api.stlouisfed.org)를 우선 사용해 더 안정적으로 수집한다.
 
@@ -67,7 +67,7 @@ _UA = {"User-Agent": "Mozilla/5.0 (compatible; bigset-inv-ingest/1.0)"}
 
 # -----------------------------------------------------------------------------
 # 1. 지표 정의 (MK_INV_MAST 기준, MAST_ID 1~19)
-#    src    : yf | fred | fdr | krx
+#    src    : yf | fred | krx
 #    ticker : 각 소스별 심볼
 #    vol    : 거래량 보유여부(VOL_YN). True 면 VOLUME 채움
 #    dp     : 가격 반올림 소수 자릿수
@@ -81,8 +81,8 @@ INDICATORS = [
     (5,  "KSVKOSPI",     "코스피200 변동성지수(VKOSPI)",    "krx",  "VKOSPI",       False, 2),
     (6,  "WTI",          "WTI 원유",                        "yf",   "CL=F",         False, 2),
     (7,  "XAU",          "금(Gold) 현물",                   "yf",   "GC=F",         True,  2),
-    (8,  "KR3YT",        "국고채 3년 금리",                 "fdr",  "KR3YT=RR",     False, 3),
-    (9,  "KR10YT",       "국고채 10년 금리",                "fdr",  "KR10YT=RR",    False, 3),
+    # (8) KR3YT, (9) KR10YT 국고채 3·10년 → 이 파이프라인에서 제외(별도 처리).
+    #   필요 시 ECOS 등으로 재활성화. 여기서는 수집하지 않음.
     (10, "US3YT",        "미국 국채 3년 금리",              "fred", "DGS3",         False, 3),
     (11, "US10YT",       "미국 국채 10년 금리",             "fred", "DGS10",        False, 3),
     (12, "US30YT",       "미국 국채 30년 금리",             "fred", "DGS30",        False, 3),
