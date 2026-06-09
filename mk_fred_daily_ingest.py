@@ -64,6 +64,7 @@ INDICATORS = [
     (6,  "US5Y",         "DGS5",         "미국 국채 5년물 (CMT)",                3),
     (7,  "US7Y",         "DGS7",         "미국 국채 7년물 (CMT)",                3),
     (8,  "US10Y",        "DGS10",        "미국 국채 10년물 (CMT)",               3),
+    (13, "US30Y",        "DGS30",        "미국 국채 30년물 (CMT)",               3),  # 구 MK_INV US30YT 통합
     (9,  "DTB3",         "DTB3",         "3-Month Treasury Bill",                3),
     (10, "SOFR30DAYAVG", "SOFR30DAYAVG", "SOFR 30-Day Average",                  3),
     (11, "SOFR90DAYAVG", "SOFR90DAYAVG", "SOFR 90-Day Average",                  3),
