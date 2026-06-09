@@ -2,7 +2,7 @@
 """
 ==============================================================================
  File        : mk_yfinance_daily_ingest.py
- Purpose     : MK_YFINANCE(글로벌 ETF·지수) 31종의 종가를 yfinance 로 수집하여
+ Purpose     : MK_YFINANCE(BM 사용 ETF) 11종의 종가를 yfinance 로 수집하여
                MK_YFINANCE_DATA_DB 포맷의 엑셀(.xlsx)로 매일 자동 저장
  Author      : PM (Bigset)
  Created     : 2026-06-09
@@ -43,39 +43,20 @@ log = logging.getLogger("MK_YF")
 #   series_cd : 정의서 SERIES_CD (코스피 등 한글명 포함)
 #   yf        : 실제 yfinance 티커 (한국 지수는 표준 심볼로 매핑)
 # -----------------------------------------------------------------------------
+# ※ BM(벤치마크)에서 사용하는 11종만 수집. 나머지는 제외.
 INDICATORS = [
     # MAST_ID, series_cd,   yf,           short_nm
-    (4,  "^GSPC",     "^GSPC",     "S&P 500 Index"),
     (5,  "VOO",       "VOO",       "Vanguard S&P 500 ETF"),
-    (6,  "SPY",       "SPY",       "SPDR S&P 500 ETF Trust"),
     (8,  "VEA",       "VEA",       "Vanguard FTSE Developed Markets ETF"),
     (10, "VWO",       "VWO",       "Vanguard FTSE Emerging Markets ETF"),
-    (12, "ACWI",      "ACWI",      "iShares MSCI ACWI ETF"),
-    (15, "코스피",     "^KS11",     "KOSPI Composite Index"),
-    (16, "코스닥",     "^KQ11",     "KOSDAQ Composite Index"),
-    (17, "코스피200",  "^KS200",    "KOSPI 200 Index"),
-    (19, "232080.KS", "232080.KS", "TIGER 코스닥150 ETF"),
-    (21, "USMV",      "USMV",      "iShares MSCI USA Min Vol Factor ETF"),
-    (22, "MVOL.L",    "MVOL.L",    "iShares Edge MSCI World Min Vol UCITS ETF"),
     (26, "BIL",       "BIL",       "SPDR Bloomberg 1-3 Month T-Bill ETF"),
-    (28, "SHY",       "SHY",       "iShares 1-3 Year Treasury Bond ETF"),
     (30, "GOVT",      "GOVT",      "iShares U.S. Treasury Bond ETF"),
     (32, "BWX",       "BWX",       "SPDR Bloomberg Intl Treasury Bond ETF"),
-    (33, "EGOV.L",    "EGOV.L",    "UBS JPM Global Government ESG Liquid Bond"),
-    (35, "AGGG.L",    "AGGG.L",    "iShares Core Global Aggregate Bond UCITS"),
     (38, "QLTA",      "QLTA",      "iShares Aaa-A Rated Corporate Bond ETF"),
     (40, "IEAC.AS",   "IEAC.AS",   "iShares Core € Corp Bond UCITS ETF"),
-    (42, "FLRN",      "FLRN",      "SPDR Bloomberg IG Floating Rate ETF"),
-    (43, "EFRN.DE",   "EFRN.DE",   "iShares € Floating Rate Bond UCITS ETF"),
     (46, "MBB",       "MBB",       "iShares MBS ETF"),
     (47, "VMBS",      "VMBS",      "Vanguard Mortgage-Backed Securities ETF"),
-    (49, "CMBS",      "CMBS",      "iShares CMBS ETF"),
-    (52, "VNQ",       "VNQ",       "Vanguard Real Estate ETF"),
-    (55, "IFRA",      "IFRA",      "iShares U.S. Infrastructure ETF"),
     (57, "IGF",       "IGF",       "iShares Global Infrastructure ETF"),
-    (59, "PSQA",      "PSQA",      "Palmer Square CLO Senior Debt ETF"),
-    (62, "SRLN",      "SRLN",      "SPDR Blackstone Senior Loan ETF"),
-    (64, "BUYO",      "BUYO",      "KraneShares Man Buyout Beta Index ETF"),
 ]
 
 DATA_COLS = ["MAST_ID", "SERIES_CD", "SERIES_NM", "TD", "VALUE"]
