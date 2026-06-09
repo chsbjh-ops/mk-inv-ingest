@@ -2,7 +2,7 @@
 """
 ==============================================================================
  File        : mk_fred_daily_ingest.py
- Purpose     : MK_FRED(미국 채권금리 등) 12종을 FRED 에서 수집하여
+ Purpose     : MK_FRED(미국 국채·SOFR) 10종을 FRED 에서 수집하여
                MK_FRED_DATA_DB 포맷의 엑셀(.xlsx)로 매일 자동 저장
  Author      : PM (Bigset)
  Created     : 2026-06-08
@@ -56,8 +56,8 @@ log = logging.getLogger("MK_FRED")
 # -----------------------------------------------------------------------------
 INDICATORS = [
     # MAST_ID, series_cd,      fred_id,        nm,                                   dp
-    (1,  "BAMLC0A3CA",   "BAMLC0A3CA",   "ICE BofA US Corp Index (BAMLC0A3CA)", 2),
-    (2,  "BAMLC0A2CAA",  "BAMLC0A2CAA",  "ICE BofA US Corp Index (BAMLC0A2CAA)", 2),
+    # (1) BAMLC0A3CA, (2) BAMLC0A2CAA — ICE BofA 지수: 라이선스(상업 이용 사전승인
+    #   필요, FRED "Copyright: Pre-Approval Required")로 수집 제외.
     (3,  "US1Y",         "DGS1",         "미국 국채 1년물 (CMT)",                3),
     (4,  "US2Y",         "DGS2",         "미국 국채 2년물 (CMT)",                3),
     (5,  "US3Y",         "DGS3",         "미국 국채 3년물 (CMT)",                3),
@@ -198,7 +198,7 @@ def run(start: str = START_DEFAULT, out_dir: str = "./MK_FRED") -> dict:
     df = pd.DataFrame(all_rows, columns=DATA_COLS).sort_values(["MAST_ID", "TD"]).reset_index(drop=True)
     result = save_excel(df, out_dir)
     ok = df["MAST_ID"].nunique()
-    log.info("완료 : 시리즈 %d/12종, 신규 %d행 → %s", ok, result["new_rows"], result["master"])
+    log.info("완료 : 시리즈 %d/%d종, 신규 %d행 → %s", ok, len(INDICATORS), result["new_rows"], result["master"])
     if ok < len(INDICATORS):
         miss = sorted(set(m[0] for m in INDICATORS) - set(df["MAST_ID"].unique()))
         log.warning("미수집 MAST_ID: %s (시리즈 ID 점검 필요)", miss)
