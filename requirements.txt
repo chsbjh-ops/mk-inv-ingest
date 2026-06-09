@@ -1,6 +1,6 @@
 pandas
 openpyxl
+requests
 yfinance
-pandas_datareader
 finance-datareader
 pykrx

@@ -8,21 +8,29 @@
  Created     : 2026-06-08
  Context     : Colab 수집 시 런타임이 끊겨 적재가 중단되는 문제 대응.
                GitHub Actions(서버 실행)에서 끝까지 안정적으로 수집한다.
-               FRED 는 pandas_datareader 경유로 API 키 없이 조회 가능.
+               FRED 호출은 requests 기반(재시도 강화). 키 없이도 동작.
 
  출력 포맷 (MK_FRED_DATA_DB)
  ----------------------------------------------------------------------------
    MAST_ID, SERIES_CD, SERIES_NM, TD(YYYYMMDD), VALUE
    ※ 앞 컬럼은 정의서 시트와 일치. SERIES_CD/NM 은 확인용으로 함께 출력.
 
+ 안정성
+ ----------
+   FRED 무료 CSV 경로(fredgraph.csv)는 간헐적 Read timeout 이 있다.
+   - FRED_API_KEY 환경변수가 있으면 공식 API(api.stlouisfed.org)를 우선 사용(안정적).
+   - 없으면 강화된 재시도/타임아웃으로 fredgraph.csv 를 호출(키 불필요).
+   - 그래도 일부가 빠지면, 매 실행 5/1부터 재조회하므로 다음 실행에서 자동 보완된다.
+
  필요 패키지
  ----------
-   pip install pandas_datareader openpyxl pandas
+   pip install requests openpyxl pandas
 ==============================================================================
 """
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import time
@@ -30,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,25 +76,58 @@ START_DEFAULT = "2026-05-01"   # 1회 백필 시작일. 매 실행마다 이 날
 # ※ FRED 는 지난주 값이 이번 주에 갱신/지연 게시되는 경우가 있어,
 #   매 실행마다 START(=5/1)부터 다시 받아 최근 2주 이상을 항상 재비교한다.
 #   병합은 (MAST_ID, TD) 기준 keep="last" 이므로 수정된 값이 최신값으로 덮어쓰기 된다.
-RETRY_MAX = 3
-RETRY_SLEEP = 3.0
+
+FRED_API_KEY = os.environ.get("FRED_API_KEY", "").strip()  # 있으면 공식 API 사용
+HTTP_TIMEOUT = 60          # 초 (기존 30 → 60 으로 상향)
+RETRY_MAX = 5              # 재시도 횟수 (기존 3 → 5)
+RETRY_BASE = 4.0          # 선형 백오프 기준 (4,8,12,16,20초)
+SLEEP_BETWEEN = 1.0       # 시리즈 간 간격 (rate limit 완화)
+_UA = {"User-Agent": "Mozilla/5.0 (compatible; bigset-fred-ingest/1.0)"}
 
 
 # -----------------------------------------------------------------------------
 # 2. 수집기 (시리즈별 독립 호출 + 재시도 → 끊김/일시오류에도 전체 진행)
 # -----------------------------------------------------------------------------
-def fetch_fred_series(fred_id: str, start: str, end):
-    from pandas_datareader import data as pdr      # 키 불필요
-    last_err = None
+def _http_get(url, params=None):
+    """재시도/타임아웃을 강화한 GET."""
+    last = None
     for attempt in range(1, RETRY_MAX + 1):
         try:
-            s = pdr.DataReader(fred_id, "fred", start, end)[fred_id]
-            return s
+            r = requests.get(url, params=params, headers=_UA, timeout=HTTP_TIMEOUT)
+            r.raise_for_status()
+            return r
         except Exception as exc:
-            last_err = exc
-            log.warning("  %s 재시도 %d/%d (%s)", fred_id, attempt, RETRY_MAX, exc)
-            time.sleep(RETRY_SLEEP)
-    raise last_err
+            last = exc
+            log.warning("  요청 재시도 %d/%d (%s)", attempt, RETRY_MAX, str(exc)[:120])
+            time.sleep(RETRY_BASE * attempt)          # 선형 백오프
+    raise last
+
+
+def fetch_fred_series(fred_id: str, start, end):
+    """공식 API(키 있으면) → 없으면 fredgraph.csv. 둘 다 pd.Series 반환."""
+    if FRED_API_KEY:
+        r = _http_get(
+            "https://api.stlouisfed.org/fred/series/observations",
+            params={"series_id": fred_id, "api_key": FRED_API_KEY,
+                    "file_type": "json",
+                    "observation_start": str(start), "observation_end": str(end)},
+        )
+        obs = r.json().get("observations", [])
+        idx = pd.to_datetime([o["date"] for o in obs])
+        val = pd.to_numeric([o["value"] for o in obs], errors="coerce")  # '.' → NaN
+        return pd.Series(val, index=idx)
+
+    # 키 없을 때: 무료 CSV 경로 (강화된 재시도)
+    r = _http_get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={fred_id}")
+    df = pd.read_csv(io.StringIO(r.text))
+    datecol, valcol = df.columns[0], df.columns[1]
+    df[datecol] = pd.to_datetime(df[datecol], errors="coerce")
+    df = df.dropna(subset=[datecol])
+    mask = (df[datecol].dt.date >= start) & (df[datecol].dt.date <= end)
+    df = df[mask]
+    s = pd.to_numeric(df[valcol], errors="coerce")
+    s.index = df[datecol]
+    return s
 
 
 def collect_one(meta, start, end) -> list[dict]:
@@ -139,11 +181,15 @@ def save_excel(df_new: pd.DataFrame, out_dir: str) -> dict:
 # -----------------------------------------------------------------------------
 def run(start: str = START_DEFAULT, out_dir: str = "./MK_FRED") -> dict:
     end = datetime.now().date()
-    log.info("MK_FRED 수집 시작 : %s ~ %s (%d종)", start, end, len(INDICATORS))
+    start_d = pd.to_datetime(start).date()
+    log.info("MK_FRED 수집 시작 : %s ~ %s (%d종)", start_d, end, len(INDICATORS))
 
+    src = "공식 API" if FRED_API_KEY else "무료 CSV"
+    log.info("수집 경로: %s", src)
     all_rows: list[dict] = []
     for meta in INDICATORS:
-        all_rows.extend(collect_one(meta, start, end))
+        all_rows.extend(collect_one(meta, start_d, end))
+        time.sleep(SLEEP_BETWEEN)
 
     if not all_rows:
         log.error("수집 결과가 비었습니다. 네트워크/패키지 설치를 확인하세요.")

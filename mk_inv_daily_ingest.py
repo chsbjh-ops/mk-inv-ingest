@@ -13,15 +13,17 @@
  데이터 소스 매핑 (값은 Investing.com 과 동일, 출처만 변경)
  ----------------------------------------------------------------------------
    yfinance                : 환율 3, 변동성(VIX), 원자재 2, 주가지수 7  = 13종
-   pandas_datareader(FRED) : 미국 국채 3/10/30년                        = 3종  (키 불필요)
+   FRED (requests)         : 미국 국채 3/10/30년                        = 3종  (키 선택)
    FinanceDataReader       : 국고채 3/10년                              = 2종  (키 불필요)
    pykrx (KRX)             : VKOSPI                                     = 1종
                                                                        --------
                                                                           19종
+   ※ FRED 는 fredgraph.csv 간헐 timeout 대응으로 재시도 강화. FRED_API_KEY 가
+     있으면 공식 API(api.stlouisfed.org)를 우선 사용해 더 안정적으로 수집한다.
 
  필요 패키지
  ----------
-   pip install yfinance pandas_datareader finance-datareader pykrx openpyxl pandas
+   pip install yfinance finance-datareader pykrx openpyxl pandas requests
 
  수집 방식
  ----------
@@ -31,7 +33,7 @@
 
  사용법 (Colab)
  ----------
-   !pip install yfinance pandas_datareader finance-datareader pykrx openpyxl -q
+   !pip install yfinance finance-datareader pykrx openpyxl requests -q
    from mk_inv_daily_ingest import run
    run(start="2026-05-01", out_dir="/content/drive/MyDrive/Bigset/MK_INV")
 ==============================================================================
@@ -39,12 +41,15 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,6 +57,13 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("MK_INV")
+
+# FRED 호출 안정화 (간헐적 Read timeout 대응). 키 있으면 공식 API 사용.
+FRED_API_KEY = os.environ.get("FRED_API_KEY", "").strip()
+HTTP_TIMEOUT = 60
+RETRY_MAX = 5
+RETRY_BASE = 4.0
+_UA = {"User-Agent": "Mozilla/5.0 (compatible; bigset-inv-ingest/1.0)"}
 
 # -----------------------------------------------------------------------------
 # 1. 지표 정의 (MK_INV_MAST 기준, MAST_ID 1~19)
@@ -145,9 +157,40 @@ def fetch_yf(ticker, start, end):
     return df[["Open", "High", "Low", "Close", "Volume"]]
 
 
+def _http_get(url, params=None):
+    last = None
+    for attempt in range(1, RETRY_MAX + 1):
+        try:
+            r = requests.get(url, params=params, headers=_UA, timeout=HTTP_TIMEOUT)
+            r.raise_for_status()
+            return r
+        except Exception as exc:
+            last = exc
+            log.warning("  요청 재시도 %d/%d (%s)", attempt, RETRY_MAX, str(exc)[:120])
+            time.sleep(RETRY_BASE * attempt)
+    raise last
+
+
 def fetch_fred(ticker, start, end):
-    from pandas_datareader import data as pdr      # 키 불필요
-    s = pdr.DataReader(ticker, "fred", start, end)[ticker]
+    """미국채 금리(DGS*) 등 FRED 시리즈. 공식 API(키 있으면)→fredgraph.csv fallback."""
+    if FRED_API_KEY:
+        r = _http_get("https://api.stlouisfed.org/fred/series/observations",
+                      params={"series_id": ticker, "api_key": FRED_API_KEY,
+                              "file_type": "json",
+                              "observation_start": str(start), "observation_end": str(end)})
+        obs = r.json().get("observations", [])
+        idx = pd.to_datetime([o["date"] for o in obs])
+        s = pd.Series(pd.to_numeric([o["value"] for o in obs], errors="coerce"), index=idx)
+    else:
+        r = _http_get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={ticker}")
+        df = pd.read_csv(io.StringIO(r.text))
+        dc, vc = df.columns[0], df.columns[1]
+        df[dc] = pd.to_datetime(df[dc], errors="coerce")
+        df = df.dropna(subset=[dc])
+        df = df[(df[dc].dt.date >= start) & (df[dc].dt.date <= end)]
+        s = pd.to_numeric(df[vc], errors="coerce")
+        s.index = df[dc]
+    s = s.dropna()
     # 금리는 종가만 존재 → OHLC 를 종가로 채움(데이터 정의서와 동일 컬럼 유지)
     return pd.DataFrame({"Open": s, "High": s, "Low": s, "Close": s, "Volume": float("nan")})
 
