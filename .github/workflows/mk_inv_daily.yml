@@ -44,7 +44,7 @@ jobs:
       - name: Run MK_YFINANCE ingest (yfinance 24종 = BM 11 + INV 13)
         env:
           MK_YF_OUT: data
-          MK_YF_START: '2020-01-01'
+          MK_YF_START: '2026-05-01'
         run: python mk_yfinance_daily_ingest.py
 
       - name: Run MK_ECB ingest (유로 금리 10종)
