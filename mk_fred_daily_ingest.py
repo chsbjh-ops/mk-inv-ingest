@@ -69,6 +69,8 @@ INDICATORS = [
     (10, "SOFR30DAYAVG", "SOFR30DAYAVG", "SOFR 30-Day Average",                  3),
     (11, "SOFR90DAYAVG", "SOFR90DAYAVG", "SOFR 90-Day Average",                  3),
     (12, "SOFRINDEX",    "SOFRINDEX",    "SOFR Index",                           8),
+    (14, "US10Y_TIPS",   "DFII10",       "미국 10년 실질금리 (TIPS)",            3),
+    (15, "US10Y_BEI",    "T10YIE",       "미국 10년 기대인플레 (BEI)",           3),
 ]
 
 DATA_COLS = ["MAST_ID", "SERIES_CD", "SERIES_NM", "TD", "VALUE"]
