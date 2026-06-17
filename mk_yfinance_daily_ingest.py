@@ -77,6 +77,12 @@ INDICATORS = [
     (22, "VIX",          "VIX 변동성지수",                "INV", "^VIX",      "N", 2),
     (23, "WTI",          "WTI 원유",                      "INV", "CL=F",      "N", 2),
     (24, "XAU",          "금(Gold) 현물",                 "INV", "GC=F",      "Y", 2),
+    (25, "N225",         "닛케이225",                     "INV", "^N225",     "Y", 2),
+    (26, "EEM",          "MSCI 신흥국(EEM)",              "INV", "EEM",       "Y", 2),
+    (27, "DXY",          "미 달러인덱스(DXY)",            "INV", "DX-Y.NYB",  "N", 2),
+    (28, "HG",           "구리(Copper)",                  "INV", "HG=F",      "N", 4),
+    (29, "NG",           "천연가스(NatGas)",              "INV", "NG=F",      "N", 3),
+    (30, "SI",           "은(Silver)",                    "INV", "SI=F",      "N", 2),
 ]
 
 DATA_COLS = ["MAST_ID", "SERIES_CD", "SERIES_NM", "USE_GB", "TD",
