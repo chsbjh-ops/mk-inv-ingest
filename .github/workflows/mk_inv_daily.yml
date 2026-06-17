@@ -53,6 +53,12 @@ jobs:
           MK_ECB_START: '2026-05-01'
         run: python mk_ecb_daily_ingest.py
 
+      - name: Run MK_KRX ingest (수급 8종 + ETF NAV/괴리율)
+        env:
+          MK_KRX_OUT: data
+          MK_KRX_START: '2026-05-01'
+        run: python mk_krx_daily_ingest.py
+
       - name: Commit & push results
         run: |
           git config user.name  "github-actions[bot]"
