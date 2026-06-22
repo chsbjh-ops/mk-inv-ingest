@@ -59,6 +59,13 @@ jobs:
           MK_KRX_START: '2026-05-01'
         run: python mk_krx_daily_ingest.py
 
+      - name: Run MK_BOND ingest (채권시세 data.go.kr)
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          MK_BOND_OUT: data
+          MK_BOND_START: '2026-06-01'
+        run: python mk_bond_daily_ingest.py
+
       - name: Commit & push results
         run: |
           git config user.name  "github-actions[bot]"
@@ -78,3 +85,4 @@ jobs:
           name: mk_data
           path: data/
           if-no-files-found: warn
+          
