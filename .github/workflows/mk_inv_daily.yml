@@ -1,5 +1,5 @@
 name: MK Daily Ingest
- 
+
 # 매일 무인 실행 + 수동 실행 버튼
 on:
   schedule:
@@ -15,56 +15,59 @@ on:
         description: 'MK_NYFED 시작일(1회 백필용, 예: 2020-01-01). 비우면 기본 2020-01-01'
         required: false
         default: ''
- 
+
 permissions:
   contents: write          # 수집 결과를 리포에 커밋하기 위해 필요
- 
+
 concurrency:               # 동시 실행 방지
   group: mk-daily-ingest
   cancel-in-progress: false
- 
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
- 
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
- 
+
       - name: Install dependencies
         run: pip install -r requirements.txt
- 
+
       - name: Run MK_FRED ingest (FRED 11종)
         env:
           MK_FRED_OUT: data
           MK_FRED_START: '2026-05-01'
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}   # 미설정 시 무료 CSV 경로 사용
         run: python mk_fred_daily_ingest.py
- 
+
       - name: Run MK_YFINANCE ingest (yfinance 24종 = BM 11 + INV 13)
         env:
           MK_YF_OUT: data
           MK_YF_START: ${{ github.event.inputs.yf_start || '2026-05-01' }}
         run: python mk_yfinance_daily_ingest.py
- 
+
       - name: Run MK_ECB ingest (유로 금리 10종)
         env:
           MK_ECB_OUT: data
           MK_ECB_START: '2026-05-01'
         run: python mk_ecb_daily_ingest.py
- 
+
       # ── NY Fed 전용(ACM 텀프리미엄·금리분해 / EFFR / BGCR·TGCR / CMDI) ──
-      - name: Run MK_NYFED ingest (NY Fed 9종)
+      - name: "Run MK_NYFED ingest (NY Fed - ACM 1~3 / EFFR·BGCR·TGCR 4~6 / CMDI 7~9)"
         env:
           MK_NYFED_OUT: data
           # 수동 실행 시 nyfed_start 입력값 사용(1회 백필), 없으면 기본 2020-01-01
           MK_NYFED_START: ${{ github.event.inputs.nyfed_start || '2020-01-01' }}
+          # CMDI(월별) 데이터 파일 URL — 인터랙티브 'Download the data' 링크.
+          # 리포 변수(Settings▸Secrets and variables▸Actions▸Variables)에 등록. 미설정 시 CMDI만 건너뜀.
+          MK_NYFED_CMDI_URL: ${{ vars.MK_NYFED_CMDI_URL }}
         run: python mk_nyfed_daily_ingest.py
- 
+
       - name: Commit & push results
         run: |
           git config user.name  "github-actions[bot]"
@@ -77,12 +80,10 @@ jobs:
             git pull --rebase --autostash origin main
             git push
           fi
- 
+
       - name: Upload artifact (백업)
         uses: actions/upload-artifact@v4
         with:
           name: mk_data
           path: data/
           if-no-files-found: warn
- 
- 
