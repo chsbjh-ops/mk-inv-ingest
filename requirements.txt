@@ -4,3 +4,4 @@ requests
 yfinance
 finance-datareader
 pykrx
+xlrd>=2.0.1
